@@ -1,5 +1,5 @@
 # User UPN of mailbox to clear
-$userPrincipalName = ""
+$userPrincipalName = "rhys.lavender@propelfinance.co.uk"
 
 # Set the maximum number of emails to process per folder
 $maxEmailsPerFolder = 500
@@ -24,9 +24,9 @@ catch {
 }
 
 # Set your Azure App registration details
-$ApplicationID = ""
-$ClientSecret = ""
-$TenantID = ""
+$ApplicationID = "f7a0dfc4-17ec-4229-91c3-3994f0d9429f"
+$ClientSecret = Get-AzKeyVaultSecret -VaultName "IT-Access" -Name "Graph-API-Removing-Email-Attachments" -AsPlainText
+$TenantID = "3e833290-3714-42e2-a81f-a6606b883185"
 
 try{
     $graphtokenBody = @{   
@@ -112,7 +112,7 @@ $ErrorActionPreference = "Stop"
 
 # Iterate through the user's mailbox folders and remove attachments
 foreach ($folder in $userMailboxFolders.Value) {
-    Write-Host "-- $($folder.displayName) --"
+    Write-Output "-- $($folder.displayName) --"
 
     $skipCount = 0
     $totalMessages = 0
@@ -123,7 +123,6 @@ foreach ($folder in $userMailboxFolders.Value) {
 
         foreach ($message in $messages.Value) {
             if ($message.HasAttachments) {
-                #Write-Host "=> Sender - $($message.sender.Values.name), Subject - $($message.subject) <="
 
                 $attachments = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/users/$userPrincipalName/mailFolders/$($folder.Id)/messages/$($message.Id)/attachments" -Headers $headers
 
@@ -166,5 +165,5 @@ foreach ($folder in $userMailboxFolders.Value) {
         $skipCount += $maxEmailsPerFolder
     }
 
-    Write-Host "Total messages processed in folder: $totalMessages"
+    Write-Output "Total messages processed in $($folder.displayName): $totalMessages"
 }
