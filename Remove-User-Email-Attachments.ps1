@@ -16,7 +16,7 @@ $listName = "IT-Email-Attachments-Removed-'$userPrincipalName'"
 
 # Set the date range to # months ago and before
 $dateRange = (Get-Date).AddMonths(-$months).ToString("yyyy-MM-ddTHH:mm:ssZ")
-$dateFilter = "createdDateTime le $dateRange"
+$dateFilter = "createdDateTime le $dateRange and HasAttachments eq true"
 
 # Set the maximum number of emails to process per folder
 $maxEmailsPerFolder = 500
@@ -33,34 +33,24 @@ catch {
     break
 }
 
-# Set your Azure App registration details
-$ApplicationID = ""
-$ClientSecret = ""
-$TenantID = ""
-
-try{
-    $graphtokenBody = @{   
-    Grant_Type    = "client_credentials"   
-    Scope         = "https://graph.microsoft.com/.default"   
-    Client_Id     = $ApplicationID   
-    Client_Secret = $ClientSecret.SecretValue | ConvertFrom-SecureString -AsPlainText
-    }  
-
-    $graphToken = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$TenantID/oauth2/v2.0/token" -Method POST -Body $graphtokenBody | Select-Object -ExpandProperty Access_Token 
-    $graphToken = $graphToken | ConvertTo-SecureString -AsPlainText -Force
-
+# Authenticate to Graph
+try
+{
     "Logging in to Graph..."
-    Connect-MgGraph -AccessToken $graphToken
-
-} catch {
+    Connect-MgGraph -Identity
+}
+catch {
     Write-Error -Message $_.Exception
     throw $_.Exception
+    break
 }
+
+Get-MgContext
 
 # Get the user's mailbox folders
 $userMailboxFolders = Get-MgUserMailFolder -UserId $userPrincipalName
 
-$displayName = $userPrincipalName.Replace("@email.co.uk","")
+$displayName = $userPrincipalName.Replace("@propelfinance.co.uk","")
 $displayName = $displayName.Replace("."," ")
 try {
     $getUserSiteId = (Get-MgSite -All | Where {$_.DisplayName -like $displayName} | Select Id).Id
@@ -116,7 +106,6 @@ if ($existingLists.displayName -notcontains $listName) {
         }
     }
         $newListJson = $newList | ConvertTo-Json -Depth 3
-        # Using Invoke as New-MgSiteList doesn't work
         $newListId = Invoke-MgGraphRequest -Method POST -Uri "https://graph.microsoft.com/v1.0/sites/$siteId/lists" -Body $newListJson -ContentType "application/json"
     } else {
         Write-Output "List already made"
@@ -126,7 +115,7 @@ if ($existingLists.displayName -notcontains $listName) {
 $listURL = Get-MgSiteList -SiteId $siteId -ListId $newListId.Id
 $listURL.WebUrl
 
-$ErrorActionPreference = "Stop"
+#$ErrorActionPreference = "Stop"
 
 # Iterate through the user's mailbox folders and remove attachments
 foreach ($folder in $userMailboxFolders) {
